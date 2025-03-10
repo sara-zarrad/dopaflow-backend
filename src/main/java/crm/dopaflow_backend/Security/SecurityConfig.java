@@ -49,12 +49,14 @@ public class SecurityConfig {
                                 "/photos/**", // Serve uploaded photos
                                 "/contact-photos/**", // Serve uploaded photos
                                 "/avatars/**", // Serve static avatars
-                                "/media/**"
+                                "/media/**",
+                                "/api/tasks/**"
                         ).permitAll()
                         // Authenticated endpoints
                         .requestMatchers("/api/auth/2fa/**",
                                 "/api/contacts/**",
-                                "/api/users/**"
+                                "/api/users/**",
+                                "/api/opportunities/**"
                         ).authenticated()
                         .anyRequest().authenticated()
                 )

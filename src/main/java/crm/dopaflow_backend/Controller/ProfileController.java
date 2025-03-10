@@ -103,11 +103,16 @@ public class ProfileController {
             String username = (String) payload.get("username");
             Boolean twoFactorEnabled = (Boolean) payload.get("twoFactorEnabled");
 
-            User updatedUser = userService.updateUser(
-                    user.getEmail(),
-                    username != null && !username.isEmpty() ? username : null,
-                    null, null, twoFactorEnabled
-            );
+            // Update the user object with new values
+            if (username != null && !username.isEmpty()) {
+                user.setUsername(username);
+            }
+            if (twoFactorEnabled != null) {
+                user.setTwoFactorEnabled(twoFactorEnabled);
+            }
+
+            // Call updateUser with the user's ID and the modified User object
+            User updatedUser = userService.updateUser(user.getId(), user);
             return new ResponseEntity<>(Map.of("message", "Profile updated successfully"), HttpStatus.OK);
         } catch (IllegalArgumentException e) {
             return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.BAD_REQUEST);

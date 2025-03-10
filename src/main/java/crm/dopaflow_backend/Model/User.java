@@ -88,7 +88,8 @@ public class User implements UserDetails {
     @Setter
     private List<LoginHistory> loginHistory = new ArrayList<>();
 
-
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Notification> notifications = new ArrayList<>();
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

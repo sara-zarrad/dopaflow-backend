@@ -4,6 +4,8 @@ import crm.dopaflow_backend.Model.*;
 import crm.dopaflow_backend.Repository.UserRepository;
 import crm.dopaflow_backend.Security.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -17,14 +19,20 @@ import java.util.regex.Pattern;
 @Service
 @RequiredArgsConstructor
 public class UserService {
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final ContactService contactService;
     private final JwtUtil jwtUtil;
     private final PhotoUploadService photoUploadService;
 
     private static final String PASSWORD_PATTERN = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*])(?=\\S+$).{8,}$";
     private static final Pattern pattern = Pattern.compile(PASSWORD_PATTERN);
+
+    public Page<User> getAllUsers(Pageable pageable) {
+        return userRepository.findAll(pageable);
+    }
 
     public User registerUser(String username, String email, String password, Role role, Date birthdate) {
         if (userRepository.findByEmail(email).isPresent()) {
@@ -74,7 +82,7 @@ public class UserService {
         return userRepository.findByVerificationToken(token);
     }
 
-    public User updateUser(String email, String username, String currentPassword, String newPassword, Boolean twoFactorEnabled) {
+    public User updateProfile(String email, String username, String currentPassword, String newPassword, Date birthdate ,Boolean twoFactorEnabled) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -83,6 +91,7 @@ public class UserService {
                 throw new IllegalArgumentException("Username already taken");
             }
             user.setUsername(username);
+
         }
 
         if (newPassword != null && !newPassword.isEmpty()) {
@@ -95,7 +104,7 @@ public class UserService {
             validatePassword(newPassword);
             user.setPassword(passwordEncoder.encode(newPassword));
         }
-
+        user.setBirthdate(birthdate);
         if (twoFactorEnabled != null) {
             if (!twoFactorEnabled && user.isTwoFactorEnabled()) {
                 user.setTwoFactorEnabled(false);
@@ -168,12 +177,23 @@ public class UserService {
     public void deleteUser(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // 1. Set owner to null for all contacts associated with this user
+        contactService.unassignContactsFromUser(id);
+
+        // 2. Delete associated LoginHistory records (if not already cascaded)
+        if (user.getLoginHistory() != null) {
+            user.getLoginHistory().clear(); // Clear the list to trigger cascade deletion
+        }
+
+        // 3. Delete the user's profile photo if it exists
         if (user.getProfilePhotoUrl() != null) {
             photoUploadService.deletePhoto(user.getProfilePhotoUrl());
         }
+
+        // 4. Delete the user (JPA will cascade to LoginHistory if cascade = CascadeType.ALL is set)
         userRepository.delete(user);
     }
-
     public User changeUserPassword(String email, String currentPassword, String newPassword) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));

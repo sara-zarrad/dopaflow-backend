@@ -5,12 +5,19 @@ import crm.dopaflow_backend.Model.User;
 import crm.dopaflow_backend.Repository.ContactRepository;
 import crm.dopaflow_backend.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -176,6 +183,45 @@ public class ContactService {
         }
         return csv.toString().getBytes();
     }
+
+    public byte[] exportContactsToExcel(List<String> columns) throws IOException {
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Contacts");
+            List<Contact> contacts = contactRepository.findAll();
+
+            // Header row
+            Row headerRow = sheet.createRow(0);
+            for (int i = 0; i < columns.size(); i++) {
+                headerRow.createCell(i).setCellValue(columns.get(i));
+            }
+
+            // Data rows
+            int rowNum = 1;
+            for (Contact contact : contacts) {
+                Row row = sheet.createRow(rowNum++);
+                for (int i = 0; i < columns.size(); i++) {
+                    String col = columns.get(i).toLowerCase();
+                    Cell cell = row.createCell(i);
+                    switch (col) {
+                        case "name": cell.setCellValue(contact.getName()); break;
+                        case "email": cell.setCellValue(contact.getEmail()); break;
+                        case "phone": cell.setCellValue(contact.getPhone()); break;
+                        case "status": cell.setCellValue(contact.getStatus() != null ? contact.getStatus() : "N/A"); break;
+                        case "company": cell.setCellValue(contact.getCompany()); break;
+                        case "notes": cell.setCellValue(contact.getNotes()); break;
+                        case "owner": cell.setCellValue(contact.getOwner() != null ? contact.getOwner().getUsername() : ""); break;
+                        case "createdat": cell.setCellValue(contact.getCreatedAt() != null ? contact.getCreatedAt().toString() : ""); break;
+                    }
+                }
+            }
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            workbook.write(baos);
+            return baos.toByteArray();
+        }
+    }
+
+
     public List<Contact> bulkCreateContacts(List<Contact> contacts) {
         return contactRepository.saveAll(contacts.stream().map(contact -> {
             // Set default values if null/empty
@@ -211,6 +257,18 @@ public class ContactService {
 
             return contact;
         }).collect(Collectors.toList()));
+    }
+
+    public void unassignContactsFromUser(Long userId) {
+        // Find all contacts where owner.id equals userId
+        List<Contact> contacts = contactRepository.findByOwnerId(userId);
+        if (!contacts.isEmpty()) {
+            // Set owner to null for each contact
+            for (Contact contact : contacts) {
+                contact.setOwner(null); // Assuming Contact has a setOwner method
+            }
+            contactRepository.saveAll(contacts); // Save all updated contacts
+        }
     }
 
     public User getUserByUsername(String username) {
