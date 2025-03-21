@@ -1,50 +1,50 @@
 package crm.dopaflow_backend.Controller;
 
+import crm.dopaflow_backend.Model.Company;
+import crm.dopaflow_backend.Service.CompanyService;
+import lombok.RequiredArgsConstructor;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.*;
-import java.util.regex.Pattern;
-import crm.dopaflow_backend.Model.Contact;
-import crm.dopaflow_backend.Model.User;
-import crm.dopaflow_backend.Service.ContactService;
-import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.*;
+import java.util.regex.Pattern;
 
 @RestController
-@RequestMapping("/api/contacts")
+@RequestMapping("/api/companies")
 @RequiredArgsConstructor
-public class ContactController {
-    private final ContactService contactService;
-    private static final String UPLOAD_DIR = "uploads/contact-photos/";
+public class CompanyController {
+    private final CompanyService companyService;
+    private static final String UPLOAD_DIR = "uploads/company-photos/";
 
-    @PostMapping("/{contactId}/uploadPhoto")
-    public ResponseEntity<?> uploadPhoto(@PathVariable Long contactId, @RequestParam("file") MultipartFile file) {
+    @PostMapping("/{companyId}/uploadPhoto")
+    public ResponseEntity<?> uploadPhoto(@PathVariable Long companyId, @RequestParam("file") MultipartFile file) {
         try {
-            Contact contact = contactId != 0 ? contactService.getContact(contactId) : null;
+            Company company = companyId != 0 ? companyService.getCompany(companyId) : null;
             Path uploadDir = Paths.get(UPLOAD_DIR);
             Files.createDirectories(uploadDir);
 
-            String fileName = "c" + (contact != null ? contact.getId() : UUID.randomUUID()) + "_" + System.currentTimeMillis() + "_" + file.getOriginalFilename();
+            String fileName = "c" + (company != null ? company.getId() : UUID.randomUUID()) + "_" +
+                    System.currentTimeMillis() + "_" + file.getOriginalFilename();
             Path filePath = uploadDir.resolve(fileName);
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
-            String photoUrl = "/contact-photos/" + fileName;
-            if (contact != null) {
-                contact.setPhotoUrl(photoUrl);
-                contactService.updateContact(contact.getId(), contact);
+            String photoUrl = "/company-photos/" + fileName;
+            if (company != null) {
+                company.setPhotoUrl(photoUrl);
+                companyService.updateCompany(company.getId(), company);
             }
 
             return ResponseEntity.ok(Map.of("photoUrl", photoUrl));
@@ -54,82 +54,78 @@ public class ContactController {
     }
 
     @GetMapping("/all")
-    public ResponseEntity<Page<Contact>> getAllContacts(
+    public ResponseEntity<Page<Company>> getAllCompanies(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size,
-            @RequestParam(defaultValue = "createdAt,desc") String sort) {
+            @RequestParam(defaultValue = "id,desc") String sort) {
         try {
-            Page<Contact> contactsPage = contactService.getAllContacts(page, size, sort);
-            if (contactsPage == null) {
-                // Return an empty page if service returns null
+            Page<Company> companiesPage = companyService.getAllCompanies(page, size, sort);
+            if (companiesPage == null) {
                 return ResponseEntity.ok(Page.empty());
             }
-            return ResponseEntity.ok(contactsPage);
+            return ResponseEntity.ok(companiesPage);
         } catch (Exception e) {
-            // Log the error and return a meaningful response
-            e.printStackTrace(); // Replace with proper logging in production
+            e.printStackTrace();
             return ResponseEntity.status(500).body(Page.empty());
         }
     }
 
     @GetMapping("/search")
-    public ResponseEntity<Page<Contact>> searchContacts(
+    public ResponseEntity<Page<Company>> searchCompanies(
             @RequestParam String query,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size,
-            @RequestParam(defaultValue = "createdAt,desc") String sort) {
-        return ResponseEntity.ok(contactService.searchContacts(query, page, size, sort));
+            @RequestParam(defaultValue = "id,desc") String sort) {
+        return ResponseEntity.ok(companyService.searchCompanies(query, page, size, sort));
     }
 
     @GetMapping("/filter")
-    public ResponseEntity<Page<Contact>> filterContacts(
+    public ResponseEntity<Page<Company>> filterCompanies(
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) String startDate,
-            @RequestParam(required = false) String endDate,
             @RequestParam(required = false) Long ownerId,
             @RequestParam(defaultValue = "false") boolean unassignedOnly,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size,
-            @RequestParam(defaultValue = "createdAt,desc") String sort) {
-        return ResponseEntity.ok(contactService.filterContacts(status, startDate, endDate, ownerId, unassignedOnly, page, size, sort));
+            @RequestParam(defaultValue = "id,desc") String sort) {
+        return ResponseEntity.ok(companyService.filterCompanies(status, ownerId, unassignedOnly, page, size, sort));
     }
 
     @GetMapping("/get/{id}")
-    public ResponseEntity<Contact> getContact(@PathVariable Long id) {
-        return ResponseEntity.ok(contactService.getContact(id));
+    public ResponseEntity<Company> getCompany(@PathVariable Long id) {
+        return ResponseEntity.ok(companyService.getCompany(id));
     }
 
     @PostMapping("/add")
-    public ResponseEntity<Contact> createContact(@RequestBody Contact contact) {
-        return ResponseEntity.ok(contactService.createContact(contact));
+    public ResponseEntity<Company> createCompany(@RequestBody Company company) {
+        return ResponseEntity.ok(companyService.createCompany(company));
     }
 
     @PutMapping("/update/{id}")
-    public ResponseEntity<Contact> updateContact(@PathVariable Long id, @RequestBody Contact contactDetails) {
-        return ResponseEntity.ok(contactService.updateContact(id, contactDetails));
+    public ResponseEntity<Company> updateCompany(@PathVariable Long id, @RequestBody Company companyDetails) {
+        return ResponseEntity.ok(companyService.updateCompany(id, companyDetails));
     }
 
     @DeleteMapping("/delete/{id}")
-    public ResponseEntity<Void> deleteContact(@PathVariable Long id) {
-        contactService.deleteContact(id);
+    public ResponseEntity<Void> deleteCompany(@PathVariable Long id) {
+        companyService.deleteCompany(id);
         return ResponseEntity.ok().build();
     }
 
-
     @PostMapping("/import")
-    public ResponseEntity<Map<String, Object>> importContacts(@RequestParam("file") MultipartFile file, @RequestParam("type") String fileType) {
+    public ResponseEntity<Map<String, Object>> importCompanies(@RequestParam("file") MultipartFile file,
+                                                               @RequestParam("type") String fileType) {
         Map<String, Object> response = new HashMap<>();
         try {
-            List<Contact> contacts;
+            List<Company> companies;
             if ("csv".equalsIgnoreCase(fileType)) {
-                contacts = parseCsv(file);
+                companies = parseCsv(file);
             } else if ("excel".equalsIgnoreCase(fileType)) {
-                contacts = parseExcel(file);
+                companies = parseExcel(file);
             } else {
                 throw new IllegalArgumentException("Invalid file type. Use 'csv' or 'excel'.");
             }
-            List<Contact> savedContacts = contactService.bulkCreateContacts(contacts);
-            response.put("message", "Imported " + savedContacts.size() + " contacts from " + contacts.size() + " parsed rows");
+            List<Company> savedCompanies = companyService.bulkCreateCompanies(companies);
+            response.put("message", "Imported " + savedCompanies.size() + " companies from " + companies.size() + " parsed rows");
             response.put("unmappedFields", getUnmappedFields());
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -140,7 +136,7 @@ public class ContactController {
         }
     }
 
-    private List<Contact> parseCsv(MultipartFile file) throws IOException {
+    private List<Company> parseCsv(MultipartFile file) throws IOException {
         final Pattern EMAIL_PATTERN = Pattern.compile("^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$", Pattern.CASE_INSENSITIVE);
         final Pattern PHONE_PATTERN = Pattern.compile("^\\+?[1-9]\\d{1,14}$");
 
@@ -151,12 +147,11 @@ public class ContactController {
                      .withIgnoreEmptyLines()
                      .withIgnoreHeaderCase())) {
 
-            List<Contact> contacts = new ArrayList<>();
+            List<Company> companies = new ArrayList<>();
             Set<String> unmappedFields = new HashSet<>();
             Map<String, String> fieldMappings = new HashMap<>();
-            Set<String> nameHints = Set.of("name", "first", "last", "full", "surname", "given", "username", "thename");
+            Set<String> nameHints = Set.of("name", "company", "business", "org", "organization");
 
-            // Dynamic header mapping
             if (csvParser.getHeaderNames() != null) {
                 for (String header : csvParser.getHeaderNames()) {
                     String lowerHeader = header.toLowerCase();
@@ -168,8 +163,12 @@ public class ContactController {
                         fieldMappings.put(lowerHeader, "phone");
                     } else if (lowerHeader.contains("status")) {
                         fieldMappings.put(lowerHeader, "status");
-                    } else if (lowerHeader.contains("company")) {
-                        fieldMappings.put(lowerHeader, "company");
+                    } else if (lowerHeader.contains("address")) {
+                        fieldMappings.put(lowerHeader, "address");
+                    } else if (lowerHeader.contains("website") || lowerHeader.contains("url")) {
+                        fieldMappings.put(lowerHeader, "website");
+                    } else if (lowerHeader.contains("industry")) {
+                        fieldMappings.put(lowerHeader, "industry");
                     } else if (lowerHeader.contains("notes")) {
                         fieldMappings.put(lowerHeader, "notes");
                     } else if (lowerHeader.contains("owner")) {
@@ -182,7 +181,7 @@ public class ContactController {
             setUnmappedFields(unmappedFields);
 
             for (CSVRecord record : csvParser) {
-                Contact contact = new Contact();
+                Company company = new Company();
                 boolean hasName = false;
 
                 for (String header : csvParser.getHeaderNames()) {
@@ -193,77 +192,77 @@ public class ContactController {
                         switch (mappedField) {
                             case "name":
                                 if (!value.isEmpty()) {
-                                    contact.setName(value);
+                                    company.setName(value);
                                     hasName = true;
                                 }
                                 break;
                             case "email":
                                 if (!value.isEmpty() && EMAIL_PATTERN.matcher(value).matches()) {
-                                    contact.setEmail(value);
-                                } else if (!value.isEmpty()) {
-                                    String notes = contact.getNotes() != null ? contact.getNotes() + "; " : "";
-                                    contact.setNotes(notes + "Invalid email: " + value);
+                                    company.setEmail(value);
                                 }
                                 break;
                             case "phone":
                                 String normalizedPhone = value.replaceAll("[^0-9+]", "");
                                 if (!normalizedPhone.isEmpty() && PHONE_PATTERN.matcher(normalizedPhone).matches()) {
-                                    contact.setPhone(normalizedPhone);
-                                } else if (!normalizedPhone.isEmpty()) {
-                                    String notes = contact.getNotes() != null ? contact.getNotes() + "; " : "";
-                                    contact.setNotes(notes + "Invalid phone: " + value);
+                                    company.setPhone(normalizedPhone);
                                 }
                                 break;
                             case "status":
                                 if (!value.isEmpty()) {
-                                    contact.setStatus(value.equalsIgnoreCase("open") || value.equalsIgnoreCase("closed") ? value : "N/A");
+                                    company.setStatus(value);
                                 }
                                 break;
-                            case "company":
+                            case "address":
                                 if (!value.isEmpty()) {
-                                    contact.setCompany(value);
+                                    company.setAddress(value);
+                                }
+                                break;
+                            case "website":
+                                if (!value.isEmpty()) {
+                                    company.setWebsite(value);
+                                }
+                                break;
+                            case "industry":
+                                if (!value.isEmpty()) {
+                                    company.setIndustry(value);
                                 }
                                 break;
                             case "notes":
                                 if (!value.isEmpty()) {
-                                    contact.setNotes(value);
+                                    company.setNotes(value);
                                 }
                                 break;
                             case "ownerUsername":
                                 if (!value.isEmpty()) {
-                                    contact.setOwnerUsername(value);
+                                    company.setOwnerUsername(value);
                                 }
                                 break;
                         }
                     } else if (!value.isEmpty()) {
-                        String notes = contact.getNotes() != null ? contact.getNotes() + "; " : "";
-                        contact.setNotes(notes + header + ": " + value);
+                        String notes = company.getNotes() != null ? company.getNotes() + "; " : "";
+                        company.setNotes(notes + header + ": " + value);
                     }
                 }
 
                 if (hasName) {
-                    if (contact.getStatus() == null) {
-                        contact.setStatus("N/A");
-                    }
-                    contacts.add(contact);
+                    companies.add(company);
                 }
             }
-            return contacts;
+            return companies;
         }
     }
 
-    private List<Contact> parseExcel(MultipartFile file) throws IOException {
+    private List<Company> parseExcel(MultipartFile file) throws IOException {
         final Pattern EMAIL_PATTERN = Pattern.compile("^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$", Pattern.CASE_INSENSITIVE);
         final Pattern PHONE_PATTERN = Pattern.compile("^\\+?[1-9]\\d{1,14}$");
 
         try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
             Sheet sheet = workbook.getSheetAt(0);
-            List<Contact> contacts = new ArrayList<>();
+            List<Company> companies = new ArrayList<>();
             Set<String> unmappedFields = new HashSet<>();
             Map<String, String> fieldMappings = new HashMap<>();
-            Set<String> nameHints = Set.of("name", "first", "last", "full", "surname", "given", "username", "thename");
+            Set<String> nameHints = Set.of("name", "company", "business", "org", "organization");
 
-            // Parse headers
             Row headerRow = sheet.getRow(0);
             if (headerRow != null) {
                 for (Cell cell : headerRow) {
@@ -276,8 +275,12 @@ public class ContactController {
                         fieldMappings.put(header, "phone");
                     } else if (header.contains("status")) {
                         fieldMappings.put(header, "status");
-                    } else if (header.contains("company")) {
-                        fieldMappings.put(header, "company");
+                    } else if (header.contains("address")) {
+                        fieldMappings.put(header, "address");
+                    } else if (header.contains("website") || header.contains("url")) {
+                        fieldMappings.put(header, "website");
+                    } else if (header.contains("industry")) {
+                        fieldMappings.put(header, "industry");
                     } else if (header.contains("notes")) {
                         fieldMappings.put(header, "notes");
                     } else if (header.contains("owner")) {
@@ -289,11 +292,10 @@ public class ContactController {
             }
             setUnmappedFields(unmappedFields);
 
-            // Parse rows
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
                 if (row == null) continue;
-                Contact contact = new Contact();
+                Company company = new Company();
                 boolean hasName = false;
 
                 for (Cell cell : row) {
@@ -305,62 +307,63 @@ public class ContactController {
                         switch (mappedField) {
                             case "name":
                                 if (!value.isEmpty()) {
-                                    contact.setName(value);
+                                    company.setName(value);
                                     hasName = true;
                                 }
                                 break;
                             case "email":
                                 if (!value.isEmpty() && EMAIL_PATTERN.matcher(value).matches()) {
-                                    contact.setEmail(value);
-                                } else if (!value.isEmpty()) {
-                                    String notes = contact.getNotes() != null ? contact.getNotes() + "; " : "";
-                                    contact.setNotes(notes + "Invalid email: " + value);
+                                    company.setEmail(value);
                                 }
                                 break;
                             case "phone":
                                 String normalizedPhone = value.replaceAll("[^0-9+]", "");
                                 if (!normalizedPhone.isEmpty() && PHONE_PATTERN.matcher(normalizedPhone).matches()) {
-                                    contact.setPhone(normalizedPhone);
-                                } else if (!normalizedPhone.isEmpty()) {
-                                    String notes = contact.getNotes() != null ? contact.getNotes() + "; " : "";
-                                    contact.setNotes(notes + "Invalid phone: " + value);
+                                    company.setPhone(normalizedPhone);
                                 }
                                 break;
                             case "status":
                                 if (!value.isEmpty()) {
-                                    contact.setStatus(value.equalsIgnoreCase("open") || value.equalsIgnoreCase("closed") ? value : "N/A");
+                                    company.setStatus(value);
                                 }
                                 break;
-                            case "company":
+                            case "address":
                                 if (!value.isEmpty()) {
-                                    contact.setCompany(value);
+                                    company.setAddress(value);
+                                }
+                                break;
+                            case "website":
+                                if (!value.isEmpty()) {
+                                    company.setWebsite(value);
+                                }
+                                break;
+                            case "industry":
+                                if (!value.isEmpty()) {
+                                    company.setIndustry(value);
                                 }
                                 break;
                             case "notes":
                                 if (!value.isEmpty()) {
-                                    contact.setNotes(value);
+                                    company.setNotes(value);
                                 }
                                 break;
                             case "ownerUsername":
                                 if (!value.isEmpty()) {
-                                    contact.setOwnerUsername(value);
+                                    company.setOwnerUsername(value);
                                 }
                                 break;
                         }
                     } else if (!value.isEmpty()) {
-                        String notes = contact.getNotes() != null ? contact.getNotes() + "; " : "";
-                        contact.setNotes(notes + header + ": " + value);
+                        String notes = company.getNotes() != null ? company.getNotes() + "; " : "";
+                        company.setNotes(notes + header + ": " + value);
                     }
                 }
 
                 if (hasName) {
-                    if (contact.getStatus() == null) {
-                        contact.setStatus("N/A");
-                    }
-                    contacts.add(contact);
+                    companies.add(company);
                 }
             }
-            return contacts;
+            return companies;
         }
     }
 
@@ -374,7 +377,6 @@ public class ContactController {
         }
     }
 
-    // Thread-local storage for unmapped fields (since this is per request)
     private ThreadLocal<Set<String>> unmappedFields = new ThreadLocal<>();
 
     private void setUnmappedFields(Set<String> fields) {
@@ -384,20 +386,17 @@ public class ContactController {
     private Set<String> getUnmappedFields() {
         return unmappedFields.get() != null ? new HashSet<>(unmappedFields.get()) : new HashSet<>();
     }
-    @GetMapping("/export")
-    public ResponseEntity<byte[]> exportContacts(@RequestParam("columns") String columns, @RequestParam("type") String fileType) throws IOException {
-        List<String> columnList = Arrays.asList(columns.split(","));
-        byte[] data;
-        String filename;
 
-        if ("csv".equalsIgnoreCase(fileType)) {
-            data = contactService.exportContactsToCsv(columnList);
-            filename = "contacts.csv";
-        } else if ("excel".equalsIgnoreCase(fileType)) {
-            data = contactService.exportContactsToExcel(columnList);
-            filename = "contacts.xlsx";
-        } else {
-            throw new IllegalArgumentException("Invalid file type. Use 'csv' or 'excel'.");
+    @GetMapping("/export")
+    public ResponseEntity<byte[]> exportCompanies(@RequestParam("columns") String columns,
+                                                  @RequestParam("type") String fileType) throws IOException {
+        List<String> columnList = Arrays.asList(columns.split(","));
+        byte[] data = companyService.exportCompaniesToCsv(columnList);
+        String filename = "companies.csv";
+
+        if ("excel".equalsIgnoreCase(fileType)) {
+            data = companyService.exportCompaniesToExcel(columnList);
+            filename = "companies.xlsx";
         }
 
         return ResponseEntity.ok()

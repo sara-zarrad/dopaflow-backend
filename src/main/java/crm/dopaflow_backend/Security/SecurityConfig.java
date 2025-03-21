@@ -8,6 +8,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -32,7 +33,7 @@ public class SecurityConfig {
         JwtAuthFilter jwtAuthFilter = new JwtAuthFilter(jwtUtil, userServiceProvider);
 
         http
-                .csrf(csrf -> csrf.disable()) // Disable CSRF for stateless API
+                .csrf(AbstractHttpConfigurer::disable) // Disable CSRF for stateless API
                 .cors(cors -> cors.configure(http)) // Enable CORS
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints
@@ -48,15 +49,20 @@ public class SecurityConfig {
                                 "/static/**",
                                 "/photos/**", // Serve uploaded photos
                                 "/contact-photos/**", // Serve uploaded photos
-                                "/avatars/**", // Serve static avatars
-                                "/media/**",
-                                "/api/tasks/**"
+                                "/avatars/**",
+                                "/api/ai/**",
+                                "/api/users/all", // Explicitly public
+                                "/ws/**"
+
                         ).permitAll()
                         // Authenticated endpoints
                         .requestMatchers("/api/auth/2fa/**",
                                 "/api/contacts/**",
                                 "/api/users/**",
-                                "/api/opportunities/**"
+                                "/api/opportunities/**",
+                                "/api/tasks/**",
+                                "/api/companies/**"
+
                         ).authenticated()
                         .anyRequest().authenticated()
                 )

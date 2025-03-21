@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class TwoFactorAuthService {
+
     private final GoogleAuthenticator gAuth = new GoogleAuthenticator();
 
     public String generateSecretKey() {
@@ -15,7 +16,7 @@ public class TwoFactorAuthService {
         return gAuth.authorize(secret, code);
     }
 
-    public String getQRCodeUrl(String email, String secret) {
-        return "otpauth://totp/DopaFlow:" + email + "?secret=" + secret + "&issuer=DopaFlow";
+    public String getQRCodeUrl(String username, String secret) {
+        return "otpauth://totp/Dopaflow:" + username + "?secret=" + secret + "&issuer=DopaFlow";
     }
 }

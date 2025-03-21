@@ -5,19 +5,18 @@ import crm.dopaflow_backend.DTO.AuthDTO;
 import crm.dopaflow_backend.Model.User;
 import crm.dopaflow_backend.Service.AuthService;
 import crm.dopaflow_backend.Service.UserService;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
 public class AuthController {
     private final UserService userService;
     private final AuthService authService;
@@ -41,6 +40,7 @@ public class AuthController {
             return new ResponseEntity<>(Map.of("message", e.getMessage()), HttpStatus.BAD_REQUEST);
         }
     }
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody AuthDTO.LoginRequest request, HttpServletRequest httpRequest) {
         try {
@@ -52,6 +52,7 @@ public class AuthController {
             return new ResponseEntity<>(Map.of("message", e.getMessage()), HttpStatus.UNAUTHORIZED);
         }
     }
+
     @PostMapping("/verify-2fa")
     public ResponseEntity<?> verify2FA(
             @RequestHeader("Authorization") String tempToken,
@@ -63,6 +64,7 @@ public class AuthController {
             return new ResponseEntity<>(Map.of("message", e.getMessage()), HttpStatus.UNAUTHORIZED);
         }
     }
+
     @GetMapping("/verify-email")
     public ResponseEntity<?> verifyEmail(@RequestParam String token) {
         try {
@@ -82,6 +84,9 @@ public class AuthController {
             );
         }
     }
+
+
+
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> request) {
         try {
@@ -105,6 +110,7 @@ public class AuthController {
             return new ResponseEntity<>(Map.of("message", e.getMessage()), HttpStatus.BAD_REQUEST);
         }
     }
+
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> request) {
         try {
@@ -131,4 +137,5 @@ public class AuthController {
     public ResponseEntity<?> logout() {
         return new ResponseEntity<>(Map.of("message", "Logout successful"), HttpStatus.OK);
     }
+
 }

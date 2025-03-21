@@ -12,15 +12,18 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
-public class ProfileController {
 
+public class ProfileController {
     private final UserService userService;
     private final JwtUtil jwtUtil;
     private final NotificationService notificationService;
@@ -37,7 +40,10 @@ public class ProfileController {
                     "role", user.getRole(),
                     "twoFactorEnabled", user.isTwoFactorEnabled(),
                     "lastLogin", user.getLastLogin(),
-                    "profilePhotoUrl", user.getProfilePhotoUrl() != null ? user.getProfilePhotoUrl() : "", // Return as-is, frontend will handle base URL
+                    "profilePhotoUrl", user.getProfilePhotoUrl() != null ? user.getProfilePhotoUrl() : "",
+                    "birthdate", user.getBirthdate(),
+                    "status", user.getStatus(),
+                    "verified", user.getVerified(),
                     "loginHistory", user.getLoginHistory().stream()
                             .map(history -> Map.of(
                                     "ipAddress", history.getIpAddress(),
@@ -100,22 +106,38 @@ public class ProfileController {
             String email = jwtUtil.getEmailFromToken(authHeader);
             User user = userService.findByEmail(email)
                     .orElseThrow(() -> new IllegalArgumentException("User not found for email: " + email));
+
+            // Extract fields from payload
             String username = (String) payload.get("username");
             Boolean twoFactorEnabled = (Boolean) payload.get("twoFactorEnabled");
+            String birthdateStr = (String) payload.get("birthdate"); // Expecting YYYY-MM-DD format from frontend
 
-            // Update the user object with new values
-            if (username != null && !username.isEmpty()) {
-                user.setUsername(username);
-            }
-            if (twoFactorEnabled != null) {
-                user.setTwoFactorEnabled(twoFactorEnabled);
+            // Parse birthdate if provided
+            Date birthdate = null;
+            if (birthdateStr != null && !birthdateStr.isEmpty()) {
+                try {
+                    SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+                    birthdate = dateFormat.parse(birthdateStr);
+                } catch (ParseException e) {
+                    return new ResponseEntity<>(Map.of("error", "Invalid birthdate format. Use YYYY-MM-DD."), HttpStatus.BAD_REQUEST);
+                }
             }
 
-            // Call updateUser with the user's ID and the modified User object
-            User updatedUser = userService.updateUser(user.getId(), user);
+            // Update user with all applicable fields
+            User updatedUser = userService.updateProfile(
+                    user.getEmail(),
+                    username != null && !username.isEmpty() ? username : null,
+                    null, // Password not updated here
+                    null,
+                    birthdate, // Use the parsed birthdate from payload, not user.getBirthdate()
+                    twoFactorEnabled
+            );
+
             return new ResponseEntity<>(Map.of("message", "Profile updated successfully"), HttpStatus.OK);
         } catch (IllegalArgumentException e) {
             return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            return new ResponseEntity<>(Map.of("error", "An unexpected error occurred: " + e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -142,6 +164,7 @@ public class ProfileController {
             notificationService.createNotification(
                     user,
                     "Your password has been successfully changed.",
+                    null,
                     Notification.NotificationType.PASSWORD_CHANGE
             );
             return new ResponseEntity<>(Map.of("message", "Password changed successfully"), HttpStatus.OK);
