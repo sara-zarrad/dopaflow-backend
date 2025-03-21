@@ -47,4 +47,9 @@ public class Company {
     private String photoUrl;
 
     private String ownerUsername;
+
+
+    public Company(String name) {
+        this.name = name;
+    }
 }

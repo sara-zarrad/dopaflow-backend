@@ -5,6 +5,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Optional;
+
 public interface CompanyRepository extends JpaRepository<Company, Long> {
     Page<Company> findAll(Pageable pageable);
 
@@ -34,4 +36,6 @@ public interface CompanyRepository extends JpaRepository<Company, Long> {
     Page<Company> findByOwnerIsNull(
             Pageable pageable
     );
+
+    Optional<Company> findByName(String name);
 }

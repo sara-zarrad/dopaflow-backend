@@ -60,4 +60,14 @@ public interface ContactRepository extends JpaRepository<Contact, Long> {
 
         List<Contact> findByOwnerId(Long ownerId);
         Contact findContactById(Long aLong);
+
+        Page<Contact> findByCompanyIdAndCreatedAtBetween(Long companyId, LocalDateTime start, LocalDateTime end, Pageable pageable);
+        Page<Contact> findByStatusAndCompanyIdAndCreatedAtBetween(String status, Long companyId, LocalDateTime start, LocalDateTime end, Pageable pageable);
+        Page<Contact> findByOwnerIdAndCompanyIdAndCreatedAtBetween(Long ownerId, Long companyId, LocalDateTime start, LocalDateTime end, Pageable pageable);
+
+        Page<Contact> findByOwnerIsNullAndCompanyIdAndCreatedAtBetween(Long companyId, LocalDateTime startDate, LocalDateTime endDate, Pageable pageable);
+
+        Page<Contact> findByStatusAndOwnerIsNullAndCompanyIdAndCreatedAtBetween(String filteredStatus, Long companyId, LocalDateTime startDate, LocalDateTime endDate, Pageable pageable);
+
+        Page<Contact> findByStatusAndOwnerIdAndCompanyIdAndCreatedAtBetween(String filteredStatus, Long ownerId, Long companyId, LocalDateTime startDate, LocalDateTime endDate, Pageable pageable);
 }
