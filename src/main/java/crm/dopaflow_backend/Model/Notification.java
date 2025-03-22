@@ -8,25 +8,24 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "notifications")
-@Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
 @Getter
 @Setter
+@AllArgsConstructor
+@Builder
 public class Notification {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     @Column(nullable = false)
     private String message;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private NotificationType type; // Enum for notification types (e.g., PASSWORD_CHANGE, TWO_FA_ENABLED, TWO_FA_DISABLED)
 
@@ -39,6 +38,19 @@ public class Notification {
     @Column(updatable = false)
     private LocalDateTime timestamp;
 
+    public Notification() {
+
+    }
+
+    public Notification(User user, String message, NotificationType type, boolean isRead, String link, LocalDateTime timestamp) {
+        this.user = user;
+        this.message = message;
+        this.type = type;
+        this.isRead = isRead;
+        this.link = link;
+        this.timestamp = timestamp;
+    }
+
     // Enum for notification types
     public enum NotificationType {
         PASSWORD_CHANGE,
@@ -48,6 +60,11 @@ public class Notification {
         USER_CREATED,
         USER_DELETED,
         CONTACT_CREATED,
-        TASK_ASSIGNED
+        TASK_ASSIGNED,
+        MESSAGE_RECEIVED,
+        TICKET_OPENED,
+        TICKET_CLOSED,
+        TICKET_STATUS_CHANGED
+
     }
 }

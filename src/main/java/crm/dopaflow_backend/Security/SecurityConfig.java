@@ -48,6 +48,7 @@ public class SecurityConfig {
                                 "/api/profile/set-avatar",
                                 "/static/**",
                                 "/photos/**", // Serve uploaded photos
+                                "/attachments/**", // Serve uploaded photos
                                 "/contact-photos/**", // Serve uploaded photos
                                 "/avatars/**",
                                 "/api/ai/**",
@@ -61,6 +62,7 @@ public class SecurityConfig {
                                 "/api/users/**",
                                 "/api/opportunities/**",
                                 "/api/tasks/**",
+                                "/api/support/**",
                                 "/api/companies/**"
 
                         ).authenticated()
@@ -89,6 +91,9 @@ public class SecurityConfig {
 
                 registry.addResourceHandler("/contact-photos/**")
                         .addResourceLocations("file:uploads/contact-photos/")
+                        .setCachePeriod(0); // Disable caching for development
+                registry.addResourceHandler("/attachments/**")
+                        .addResourceLocations("file:uploads/attachments/")
                         .setCachePeriod(0); // Disable caching for development
 
                 // Map /avatars/ to file:uploads/avatars/
