@@ -555,6 +555,7 @@ public class ContactController {
             byte[] data;
             String filename;
 
+
             if ("csv".equalsIgnoreCase(fileType)) {
                 data = contactService.exportContactsToCsv(columnList);
                 filename = "contacts.csv";
