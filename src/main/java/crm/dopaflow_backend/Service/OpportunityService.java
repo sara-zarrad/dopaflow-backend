@@ -2,7 +2,6 @@ package crm.dopaflow_backend.Service;
 
 import crm.dopaflow_backend.Model.Opportunity;
 import crm.dopaflow_backend.Model.Stage;
-import crm.dopaflow_backend.Model.User;
 import crm.dopaflow_backend.Repository.ContactRepository;
 import crm.dopaflow_backend.Repository.OpportunityRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,10 +16,8 @@ import org.springframework.stereotype.Service;
 public class OpportunityService {
     private final OpportunityRepository opportunityRepository;
     private final ContactRepository contactRepository;
+    private final TaskService taskService;
 
-    public Page<Opportunity> getAllOpportunities(Pageable pageable) {
-        return opportunityRepository.findAll(pageable);
-    }
     public Page<Opportunity> getAllOpportunities(int page, int size, String sort) {
         Sort sortObj = Sort.by(Sort.Direction.fromString(sort.split(",")[1]), sort.split(",")[0]);
         Pageable pageable = PageRequest.of(page, size, sortObj);
@@ -67,7 +64,8 @@ public class OpportunityService {
 
     public void deleteOpportunity(Long id) {
         Opportunity opportunity = getOpportunity(id);
-        opportunityRepository.deleteById(id);
+        taskService.unassignTasksFromOpportunity(id);
+        opportunityRepository.delete(opportunity);
     }
 
     public Opportunity incrementProgress(Long id, int increment) {
@@ -99,11 +97,10 @@ public class OpportunityService {
         }
     }
 
+    // New method to assign a contact to an existing opportunity
     public Opportunity assignContact(Long id, Long contactId) {
         Opportunity opportunity = getOpportunity(id);
         opportunity.setContact(contactId != null ? contactRepository.findContactById(contactId) : null); // Assuming Contact has a constructor with ID
         return opportunityRepository.save(opportunity);
     }
-
-
 }

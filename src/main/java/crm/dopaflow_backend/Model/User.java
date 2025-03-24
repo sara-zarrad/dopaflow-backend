@@ -1,3 +1,4 @@
+// User.java (Updated)
 package crm.dopaflow_backend.Model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -21,6 +22,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class User implements UserDetails {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -65,10 +67,8 @@ public class User implements UserDetails {
     @JsonIgnore
     @ToString.Exclude
     private List<LoginHistory> loginHistory = new ArrayList<>();
-
     @Column(name = "last_active") // New field for last active timestamp
     private Instant lastActive;
-
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return Collections.singletonList(new SimpleGrantedAuthority(role.name()));
@@ -87,6 +87,11 @@ public class User implements UserDetails {
     @Override
     public boolean isAccountNonLocked() {
         return true;
+    }
+
+    public User(Long id, String username) {
+        this.id = id;
+        this.username = username;
     }
 
     @Override
@@ -110,5 +115,10 @@ public class User implements UserDetails {
         loginHistory.add(history);
         history.setUser(this);
     }
-}
+    public void deleteLoginHistory() {
+        if (loginHistory != null) {
+            loginHistory.clear();
+        }
+    }
 
+}

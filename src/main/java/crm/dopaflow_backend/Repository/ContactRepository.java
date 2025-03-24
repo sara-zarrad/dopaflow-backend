@@ -4,6 +4,8 @@ import crm.dopaflow_backend.Model.Contact;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -70,4 +72,12 @@ public interface ContactRepository extends JpaRepository<Contact, Long> {
         Page<Contact> findByStatusAndOwnerIsNullAndCompanyIdAndCreatedAtBetween(String filteredStatus, Long companyId, LocalDateTime startDate, LocalDateTime endDate, Pageable pageable);
 
         Page<Contact> findByStatusAndOwnerIdAndCompanyIdAndCreatedAtBetween(String filteredStatus, Long ownerId, Long companyId, LocalDateTime startDate, LocalDateTime endDate, Pageable pageable);
+
+        List<Contact> findByEmailIn(List<String> emails);
+        List<Contact> findByCompanyId(Long companyId);
+
+        // Unassign company from contacts (set company_id to NULL)
+        @Modifying
+        @Query("UPDATE Contact c SET c.company = NULL WHERE c.company.id = :companyId")
+        void unassignCompany(Long companyId);
 }
