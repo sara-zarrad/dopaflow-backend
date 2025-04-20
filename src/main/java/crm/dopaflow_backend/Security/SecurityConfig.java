@@ -52,8 +52,8 @@ public class SecurityConfig {
                                 "/contact-photos/**", // Serve uploaded photos
                                 "company-photos/**",
                                 "/avatars/**",
-                                "/api/ai/**",
                                 "/api/users/all", // Explicitly public
+                                "/api/users/suspend-self",
                                 "/ws/**"
 
                         ).permitAll()
@@ -64,7 +64,8 @@ public class SecurityConfig {
                                 "/api/opportunities/**",
                                 "/api/tasks/**",
                                 "/api/support/**",
-                                "/api/companies/**"
+                                "/api/companies/**",
+                                "/api/reporting/**"
 
                         ).authenticated()
                         .anyRequest().authenticated()

@@ -22,10 +22,9 @@ public class Notification {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 5000)
     private String message;
 
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private NotificationType type; // Enum for notification types (e.g., PASSWORD_CHANGE, TWO_FA_ENABLED, TWO_FA_DISABLED)
 

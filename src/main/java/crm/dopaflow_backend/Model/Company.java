@@ -3,6 +3,8 @@ package crm.dopaflow_backend.Model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "companies")
 @Getter
@@ -40,6 +42,8 @@ public class Company {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
+    @Column(nullable = false)
+    private LocalDateTime createdAt;
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "owner_id")
     private User owner;
