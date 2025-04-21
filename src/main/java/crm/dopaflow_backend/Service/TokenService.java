@@ -22,5 +22,4 @@ public class TokenService {
     public boolean isTempToken(String token) {
         return jwtUtil.isTempToken(token);
     }
-
 }

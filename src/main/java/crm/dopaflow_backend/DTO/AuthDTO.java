@@ -22,5 +22,4 @@ public class AuthDTO {
         private String email;
         private String password;
     }
-
 }

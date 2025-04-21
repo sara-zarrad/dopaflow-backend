@@ -1,3 +1,4 @@
+// LoginHistory.java (Updated)
 package crm.dopaflow_backend.Model;
 
 import jakarta.persistence.*;
@@ -12,11 +13,11 @@ import java.util.Date;
 @AllArgsConstructor
 @Builder
 public class LoginHistory {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private long id;
-    @ManyToOne(fetch = FetchType.LAZY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", nullable = false)
     @ToString.Exclude // Prevent circular reference in toString
     private User user;
@@ -32,7 +33,4 @@ public class LoginHistory {
 
     @Column(nullable = false)
     private Date loginTime;
-
-
-
 }

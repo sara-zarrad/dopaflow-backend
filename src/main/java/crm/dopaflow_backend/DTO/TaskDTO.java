@@ -3,8 +3,8 @@ package crm.dopaflow_backend.DTO;
 import crm.dopaflow_backend.Model.Task;
 import lombok.Data;
 
-import java.util.Date;
 import java.time.LocalDateTime;
+import java.util.Date;
 
 @Data
 public class TaskDTO {

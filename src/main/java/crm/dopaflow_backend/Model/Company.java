@@ -42,8 +42,6 @@ public class Company {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
-    @Column(nullable = false)
-    private LocalDateTime createdAt;
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "owner_id")
     private User owner;
@@ -52,7 +50,8 @@ public class Company {
 
     private String ownerUsername;
 
-
+    @Column(nullable = false)
+    private LocalDateTime createdAt = LocalDateTime.now();
     public Company(String name) {
         this.name = name;
     }

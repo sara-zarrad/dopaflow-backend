@@ -1,7 +1,9 @@
+// AuthService.java (Updated)
 package crm.dopaflow_backend.Service;
 
 import crm.dopaflow_backend.DTO.AuthDTO;
 import crm.dopaflow_backend.Model.LoginHistory;
+import crm.dopaflow_backend.Model.StatutUser;
 import crm.dopaflow_backend.Model.User;
 import crm.dopaflow_backend.Security.JwtUtil;
 import jakarta.mail.MessagingException;
@@ -14,7 +16,6 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
@@ -34,7 +35,6 @@ public class AuthService {
     private JavaMailSender mailSender;
     @Value("${frontend.url}")
     private String frontendUrl;
-
     public Map<String, Object> authenticateUser(AuthDTO.LoginRequest request, HttpServletRequest httpRequest) {
         User user = userService.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -46,7 +46,9 @@ public class AuthService {
         if (!user.getVerified()) {
             throw new RuntimeException("Email not verified");
         }
-
+        if (user.getStatus().equals(StatutUser.Suspended)) {
+            throw new RuntimeException("Account is suspended,Contact an admin");
+        }
         // Record login details
         String ipAddress = httpRequest.getRemoteAddr();
         String userAgent = httpRequest.getHeader("User-Agent");
@@ -75,6 +77,7 @@ public class AuthService {
         }
         return response;
     }
+
     public String verify2FACode(String tempToken, int code) {
         if (!tempToken.startsWith("Bearer ")) {
             throw new RuntimeException("Invalid token format");
@@ -160,5 +163,4 @@ public class AuthService {
     public String encodePassword(String password) {
         return passwordEncoder.encode(password);
     }
-
 }

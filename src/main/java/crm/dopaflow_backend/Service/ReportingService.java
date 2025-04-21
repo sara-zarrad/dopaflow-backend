@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Date;
@@ -35,6 +36,7 @@ import java.util.List;
 public class ReportingService {
 
     private static final Logger logger = LoggerFactory.getLogger(ReportingService.class);
+    private static final DateTimeFormatter MONTH_FORMATTER = DateTimeFormatter.ofPattern("MMM");
 
     private final OpportunityRepository opportunityRepository;
     private final ContactRepository contactRepository;
@@ -49,9 +51,10 @@ public class ReportingService {
         ReportDTO report = new ReportDTO();
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime sixMonthsAgo = now.minus(6, ChronoUnit.MONTHS);
+        LocalDateTime oneMonthAgo = now.minus(1, ChronoUnit.MONTHS);
         Date sixMonthsAgoDate = Date.from(sixMonthsAgo.atZone(ZoneId.systemDefault()).toInstant());
 
-        // Get current user (for authentication purposes only)
+        // Get current user
         User currentUser = getCurrentUser();
         logger.info("Current user: {}", currentUser.getEmail());
 
@@ -59,67 +62,59 @@ public class ReportingService {
         KeyIndicatorsDTO keyIndicators = new KeyIndicatorsDTO();
 
         // 1. Total value of WON opportunities
-        long queryStart = System.currentTimeMillis();
-        BigDecimal totalOpportunityValue = BigDecimal.valueOf(opportunityRepository.getTotalOpportunityValue(StatutOpportunity.WON));
-        keyIndicators.setTotalOpportunityValue(totalOpportunityValue != null ? totalOpportunityValue : BigDecimal.ZERO);
-        logger.info("getTotalOpportunityValue took {} ms", System.currentTimeMillis() - queryStart);
+        Double totalOpportunityValue = opportunityRepository.getTotalOpportunityValue(StatutOpportunity.WON);
+        keyIndicators.setTotalOpportunityValue(totalOpportunityValue != null ? BigDecimal.valueOf(totalOpportunityValue) : BigDecimal.ZERO);
+        logger.info("Total Opportunity Value: {}", keyIndicators.getTotalOpportunityValue());
 
         // 2. Count of new opportunities in the last month
-        queryStart = System.currentTimeMillis();
-        LocalDateTime oneMonthAgo = now.minus(1, ChronoUnit.MONTHS);
-        long newOpportunities = opportunityRepository.countOpenOpportunities(StatutOpportunity.IN_PROGRESS);
+        // Workaround: Fetch opportunities since oneMonthAgo and filter by IN_PROGRESS
+        List<Opportunity> recentOpportunities = opportunityRepository.findWonOpportunitiesSince(StatutOpportunity.IN_PROGRESS, oneMonthAgo);
+        long newOpportunities = recentOpportunities.size();
         keyIndicators.setNewOpportunities(newOpportunities);
-        logger.info("countOpenOpportunities took {} ms", System.currentTimeMillis() - queryStart);
+        logger.info("New Opportunities (last month): {}", newOpportunities);
 
-        // 3. Total completed tasks (global for all roles)
-        queryStart = System.currentTimeMillis();
+        // 3. Total completed tasks
         long completedTasks = taskRepository.countCompletedTasks(StatutTask.Done);
         keyIndicators.setCompletedTasks(completedTasks);
-        logger.info("countCompletedTasks took {} ms", System.currentTimeMillis() - queryStart);
+        logger.info("Completed Tasks: {}", completedTasks);
 
-        // 4. Customer satisfaction (mocked as 92% since not in database)
-        keyIndicators.setCustomerSatisfaction(92.0); // Placeholder
+        // 4. Customer satisfaction (mocked)
+        keyIndicators.setCustomerSatisfaction(92.0);
+        logger.info("Customer Satisfaction: 92.0% (mocked)");
 
         // 5. New companies in the last month
-        queryStart = System.currentTimeMillis();
         long newCompanies = companyRepository.countNewCompaniesSince(oneMonthAgo);
         keyIndicators.setNewCompanies(newCompanies);
-        logger.info("countNewCompaniesSince took {} ms", System.currentTimeMillis() - queryStart);
+        logger.info("New Companies: {}", newCompanies);
 
         // 6. New contacts in the last month
-        queryStart = System.currentTimeMillis();
         long newContacts = contactRepository.countNewContactsSince(oneMonthAgo);
         keyIndicators.setNewContacts(newContacts);
-        logger.info("countNewContactsSince took {} ms", System.currentTimeMillis() - queryStart);
+        logger.info("New Contacts: {}", newContacts);
 
         report.setKeyIndicators(keyIndicators);
 
         // --- Evolution Chart (Last 6 Months) ---
-        // Line 1: Number of completed tasks per month
-        // Line 2: Total value of WON opportunities per month
-        queryStart = System.currentTimeMillis();
         List<Task> completedTasksList = taskRepository.findCompletedTasksSince(StatutTask.Done, sixMonthsAgoDate);
         List<Opportunity> wonOpportunities = opportunityRepository.findWonOpportunitiesSince(StatutOpportunity.WON, sixMonthsAgo);
-        logger.info("findCompletedTasksSince and findWonOpportunitiesSince took {} ms", System.currentTimeMillis() - queryStart);
+        logger.info("Fetched {} completed tasks and {} won opportunities", completedTasksList.size(), wonOpportunities.size());
 
-        // Initialize chart data for the last 6 months
         List<SalesEvolutionDTO> salesEvolutionData = new ArrayList<>();
         for (int i = 5; i >= 0; i--) {
             LocalDateTime monthStart = now.minus(i, ChronoUnit.MONTHS).withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0);
             SalesEvolutionDTO monthData = new SalesEvolutionDTO();
-            monthData.setMonth(monthStart.getMonth().toString().substring(0, 3)); // e.g., "JAN", "FEB"
-            monthData.setCompletedTasks(0L); // Number of completed tasks
-            monthData.setOpportunityValue(BigDecimal.ZERO); // Total value of WON opportunities
+            monthData.setMonth(monthStart.format(MONTH_FORMATTER).toUpperCase());
+            monthData.setCompletedTasks(0L);
+            monthData.setOpportunityValue(BigDecimal.ZERO);
             salesEvolutionData.add(monthData);
         }
 
-        // Populate completed tasks
+        // Populate completed tasks using deadline
         for (Task task : completedTasksList) {
-            if (task.getDeadline() == null) {
-                continue;
-            }
+            if (task.getDeadline() == null) continue;
             LocalDateTime deadline = LocalDateTime.ofInstant(task.getDeadline().toInstant(), ZoneId.systemDefault());
-            String monthKey = deadline.getMonth().toString().substring(0, 3);
+            if (deadline.isBefore(sixMonthsAgo)) continue;
+            String monthKey = deadline.format(MONTH_FORMATTER).toUpperCase();
             salesEvolutionData.stream()
                     .filter(data -> data.getMonth().equals(monthKey))
                     .findFirst()
@@ -128,50 +123,44 @@ public class ReportingService {
 
         // Populate WON opportunities value
         for (Opportunity op : wonOpportunities) {
-            String monthKey = op.getCreatedAt().getMonth().toString().substring(0, 3);
+            LocalDateTime createdDate = op.getCreatedAt();
+            if (createdDate == null || createdDate.isBefore(sixMonthsAgo)) continue;
+            String monthKey = createdDate.format(MONTH_FORMATTER).toUpperCase();
             salesEvolutionData.stream()
                     .filter(data -> data.getMonth().equals(monthKey))
                     .findFirst()
                     .ifPresent(data -> {
-                        BigDecimal currentValue = data.getOpportunityValue();
-                        BigDecimal opValue = op.getValue() != null ? op.getValue() : BigDecimal.ZERO;
-                        data.setOpportunityValue(currentValue.add(opValue));
+                        BigDecimal value = op.getValue() != null ? op.getValue() : BigDecimal.ZERO;
+                        data.setOpportunityValue(data.getOpportunityValue().add(value));
                     });
         }
         report.setSalesEvolution(salesEvolutionData);
+        logger.info("Sales Evolution Data: {}", salesEvolutionData);
 
         // --- Performance Table ---
-        // Show performance for all users (visible to all roles)
         List<SalesPerformanceDTO> salesPerformance = new ArrayList<>();
-        List<User> usersToReport = userRepository.findAll();
-
-        for (User user : usersToReport) {
-            queryStart = System.currentTimeMillis();
-            List<Opportunity> userWonOpportunities = opportunityRepository.findWonOpportunitiesSinceForUser(
-                    StatutOpportunity.WON, sixMonthsAgo, user.getId());
-            logger.info("findWonOpportunitiesSinceForUser for user {} took {} ms", user.getEmail(), System.currentTimeMillis() - queryStart);
-
+        List<User> users = userRepository.findAll();
+        for (User user : users) {
+            List<Opportunity> userWonOpportunities = opportunityRepository.findWonOpportunitiesSinceForUser(StatutOpportunity.WON, sixMonthsAgo, user.getId());
             BigDecimal achieved = userWonOpportunities.stream()
                     .map(op -> op.getValue() != null ? op.getValue() : BigDecimal.ZERO)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
-            BigDecimal target = new BigDecimal("15000.0"); // Mocked target
+            BigDecimal target = new BigDecimal("15000.0");
 
             SalesPerformanceDTO userPerformance = new SalesPerformanceDTO();
             userPerformance.setName(user.getUsername() != null ? user.getUsername() : user.getEmail());
             userPerformance.setTarget(target);
             userPerformance.setAchieved(achieved);
-            // Calculate progress as a percentage: (achieved / target) * 100
             double progress = target.compareTo(BigDecimal.ZERO) != 0
-                    ? achieved.divide(target, 4, BigDecimal.ROUND_HALF_UP)
-                    .multiply(new BigDecimal("100"))
-                    .doubleValue()
+                    ? achieved.divide(target, 4, BigDecimal.ROUND_HALF_UP).multiply(BigDecimal.valueOf(100)).doubleValue()
                     : 0.0;
             userPerformance.setProgress(progress);
             salesPerformance.add(userPerformance);
         }
         report.setSalesPerformance(salesPerformance);
+        logger.info("Sales Performance Data: {}", salesPerformance);
 
-        logger.info("Report generated successfully in {} ms", System.currentTimeMillis() - startTime);
+        logger.info("Report generated in {} ms", System.currentTimeMillis() - startTime);
         return report;
     }
 
@@ -182,11 +171,7 @@ public class ReportingService {
             throw new SecurityException("No authenticated user found. Please log in.");
         }
         String email = authentication.getName();
-        logger.debug("Fetching user by email: {}", email);
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> {
-                    logger.error("User not found in database: {}", email);
-                    return new RuntimeException("Current user not found in database: " + email);
-                });
+                .orElseThrow(() -> new RuntimeException("User not found: " + email));
     }
 }
