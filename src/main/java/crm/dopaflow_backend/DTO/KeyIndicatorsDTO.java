@@ -16,5 +16,6 @@ public class KeyIndicatorsDTO {
     private double customerSatisfaction; // Mocked value
     private long newCompanies;
     private long newContacts;
+    private long totalOpportunitiesForUser;
 
 }
