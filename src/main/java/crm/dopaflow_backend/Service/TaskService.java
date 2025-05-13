@@ -110,6 +110,8 @@ public class TaskService {
             String endDateStr,
             Long assignedUserId,
             boolean unassignedOnly,
+            Long opportunityId,
+            String priorityStr,
             int page,
             int size,
             String sort) {
@@ -118,32 +120,132 @@ public class TaskService {
         Date startDate = parseDate(startDateStr, true);
         Date endDate = parseDate(endDateStr, false);
         String filteredStatus = (status != null && !status.trim().isEmpty()) ? status : "ANY";
+        Priority priority = (priorityStr != null && !priorityStr.trim().isEmpty() && !"ANY".equalsIgnoreCase(priorityStr))
+                ? Priority.valueOf(priorityStr.toUpperCase())
+                : null;
 
         if (!hasAdminPrivileges(currentUser) && assignedUserId != null &&
                 !currentUser.getId().equals(assignedUserId)) {
             throw new SecurityException("Regular users can only filter their own tasks");
         }
 
-        if ("ANY".equals(filteredStatus)) {
-            if (unassignedOnly) {
-                return taskRepository.findByAssignedUserIsNullAndDeadlineBetween(startDate, endDate, pageable);
-            } else if (assignedUserId != null) {
-                return taskRepository.findByAssignedUserIdAndDeadlineBetween(assignedUserId, startDate, endDate, pageable);
+        // Handle priority filtering first
+        if (priority != null) {
+            if (opportunityId != null) {
+                if ("ANY".equals(filteredStatus)) {
+                    if (unassignedOnly) {
+                        return taskRepository.findByPriorityAndOpportunityIdAndAssignedUserIsNullAndDeadlineBetween(
+                                priority, opportunityId, startDate, endDate, pageable);
+                    } else if (assignedUserId != null) {
+                        return taskRepository.findByPriorityAndOpportunityIdAndAssignedUserIdAndDeadlineBetween(
+                                priority, opportunityId, assignedUserId, startDate, endDate, pageable);
+                    } else {
+                        return hasAdminPrivileges(currentUser)
+                                ? taskRepository.findByPriorityAndOpportunityIdAndDeadlineBetween(priority, opportunityId, startDate, endDate, pageable)
+                                : taskRepository.findByPriorityAndOpportunityIdAndAssignedUserIdAndDeadlineBetween(
+                                priority, opportunityId, currentUser.getId(), startDate, endDate, pageable);
+                    }
+                } else {
+                    StatutTask statutTask = StatutTask.valueOf(filteredStatus);
+                    if (unassignedOnly) {
+                        return taskRepository.findByPriorityAndOpportunityIdAndStatutTaskAndAssignedUserIsNullAndDeadlineBetween(
+                                priority, opportunityId, statutTask, startDate, endDate, pageable);
+                    } else if (assignedUserId != null) {
+                        return taskRepository.findByPriorityAndOpportunityIdAndStatutTaskAndAssignedUserIdAndDeadlineBetween(
+                                priority, opportunityId, statutTask, assignedUserId, startDate, endDate, pageable);
+                    } else {
+                        return hasAdminPrivileges(currentUser)
+                                ? taskRepository.findByPriorityAndOpportunityIdAndStatutTaskAndDeadlineBetween(
+                                priority, opportunityId, statutTask, startDate, endDate, pageable)
+                                : taskRepository.findByPriorityAndOpportunityIdAndStatutTaskAndAssignedUserIdAndDeadlineBetween(
+                                priority, opportunityId, statutTask, currentUser.getId(), startDate, endDate, pageable);
+                    }
+                }
             } else {
-                return hasAdminPrivileges(currentUser)
-                        ? taskRepository.findByDeadlineBetween(startDate, endDate, pageable)
-                        : taskRepository.findByAssignedUserIdAndDeadlineBetween(currentUser.getId(), startDate, endDate, pageable);
+                if ("ANY".equals(filteredStatus)) {
+                    if (unassignedOnly) {
+                        return taskRepository.findByPriorityAndAssignedUserIsNullAndDeadlineBetween(
+                                priority, startDate, endDate, pageable);
+                    } else if (assignedUserId != null) {
+                        return taskRepository.findByPriorityAndAssignedUserIdAndDeadlineBetween(
+                                priority, assignedUserId, startDate, endDate, pageable);
+                    } else {
+                        return hasAdminPrivileges(currentUser)
+                                ? taskRepository.findByPriorityAndDeadlineBetween(priority, startDate, endDate, pageable)
+                                : taskRepository.findByPriorityAndAssignedUserIdAndDeadlineBetween(
+                                priority, currentUser.getId(), startDate, endDate, pageable);
+                    }
+                } else {
+                    StatutTask statutTask = StatutTask.valueOf(filteredStatus);
+                    if (unassignedOnly) {
+                        return taskRepository.findByPriorityAndStatutTaskAndAssignedUserIsNullAndDeadlineBetween(
+                                priority, statutTask, startDate, endDate, pageable);
+                    } else if (assignedUserId != null) {
+                        return taskRepository.findByPriorityAndStatutTaskAndAssignedUserIdAndDeadlineBetween(
+                                priority, statutTask, assignedUserId, startDate, endDate, pageable);
+                    } else {
+                        return hasAdminPrivileges(currentUser)
+                                ? taskRepository.findByPriorityAndStatutTaskAndDeadlineBetween(
+                                priority, statutTask, startDate, endDate, pageable)
+                                : taskRepository.findByPriorityAndStatutTaskAndAssignedUserIdAndDeadlineBetween(
+                                priority, statutTask, currentUser.getId(), startDate, endDate, pageable);
+                    }
+                }
+            }
+        }
+        // Fallback to status-only or opportunity-only filtering if no priority is specified
+        else if (opportunityId != null) {
+            if ("ANY".equals(filteredStatus)) {
+                if (unassignedOnly) {
+                    return taskRepository.findByOpportunityIdAndAssignedUserIsNullAndDeadlineBetween(
+                            opportunityId, startDate, endDate, pageable);
+                } else if (assignedUserId != null) {
+                    return taskRepository.findByOpportunityIdAndAssignedUserIdAndDeadlineBetween(
+                            opportunityId, assignedUserId, startDate, endDate, pageable);
+                } else {
+                    return hasAdminPrivileges(currentUser)
+                            ? taskRepository.findByOpportunityIdAndDeadlineBetween(opportunityId, startDate, endDate, pageable)
+                            : taskRepository.findByOpportunityIdAndAssignedUserIdAndDeadlineBetween(
+                            opportunityId, currentUser.getId(), startDate, endDate, pageable);
+                }
+            } else {
+                StatutTask statutTask = StatutTask.valueOf(filteredStatus);
+                if (unassignedOnly) {
+                    return taskRepository.findByOpportunityIdAndStatutTaskAndAssignedUserIsNullAndDeadlineBetween(
+                            opportunityId, statutTask, startDate, endDate, pageable);
+                } else if (assignedUserId != null) {
+                    return taskRepository.findByOpportunityIdAndStatutTaskAndAssignedUserIdAndDeadlineBetween(
+                            opportunityId, statutTask, assignedUserId, startDate, endDate, pageable);
+                } else {
+                    return hasAdminPrivileges(currentUser)
+                            ? taskRepository.findByOpportunityIdAndStatutTaskAndDeadlineBetween(
+                            opportunityId, statutTask, startDate, endDate, pageable)
+                            : taskRepository.findByOpportunityIdAndStatutTaskAndAssignedUserIdAndDeadlineBetween(
+                            opportunityId, statutTask, currentUser.getId(), startDate, endDate, pageable);
+                }
             }
         } else {
-            StatutTask statutTask = StatutTask.valueOf(filteredStatus);
-            if (unassignedOnly) {
-                return taskRepository.findByStatutTaskAndAssignedUserIsNullAndDeadlineBetween(statutTask, startDate, endDate, pageable);
-            } else if (assignedUserId != null) {
-                return taskRepository.findByStatutTaskAndAssignedUserIdAndDeadlineBetween(statutTask, assignedUserId, startDate, endDate, pageable);
+            if ("ANY".equals(filteredStatus)) {
+                if (unassignedOnly) {
+                    return taskRepository.findByAssignedUserIsNullAndDeadlineBetween(startDate, endDate, pageable);
+                } else if (assignedUserId != null) {
+                    return taskRepository.findByAssignedUserIdAndDeadlineBetween(assignedUserId, startDate, endDate, pageable);
+                } else {
+                    return hasAdminPrivileges(currentUser)
+                            ? taskRepository.findByDeadlineBetween(startDate, endDate, pageable)
+                            : taskRepository.findByAssignedUserIdAndDeadlineBetween(currentUser.getId(), startDate, endDate, pageable);
+                }
             } else {
-                return hasAdminPrivileges(currentUser)
-                        ? taskRepository.findByStatutTaskAndDeadlineBetween(statutTask, startDate, endDate, pageable)
-                        : taskRepository.findByStatutTaskAndAssignedUserIdAndDeadlineBetween(statutTask, currentUser.getId(), startDate, endDate, pageable);
+                StatutTask statutTask = StatutTask.valueOf(filteredStatus);
+                if (unassignedOnly) {
+                    return taskRepository.findByStatutTaskAndAssignedUserIsNullAndDeadlineBetween(statutTask, startDate, endDate, pageable);
+                } else if (assignedUserId != null) {
+                    return taskRepository.findByStatutTaskAndAssignedUserIdAndDeadlineBetween(statutTask, assignedUserId, startDate, endDate, pageable);
+                } else {
+                    return hasAdminPrivileges(currentUser)
+                            ? taskRepository.findByStatutTaskAndDeadlineBetween(statutTask, startDate, endDate, pageable)
+                            : taskRepository.findByStatutTaskAndAssignedUserIdAndDeadlineBetween(statutTask, currentUser.getId(), startDate, endDate, pageable);
+                }
             }
         }
     }
@@ -309,6 +411,7 @@ public class TaskService {
             }
         }
     }
+
     @Scheduled(fixedRate = 60000) // Runs every minute
     @Transactional
     public void checkUpcomingDeadlines() {
