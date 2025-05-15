@@ -39,7 +39,6 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     Page<Task> findByStatutTaskAndDeadlineBetween(
             StatutTask statutTask, Date startDate, Date endDate, Pageable pageable);
 
-    // New methods for filtering by opportunityId
     Page<Task> findByOpportunityIdAndAssignedUserIsNullAndDeadlineBetween(
             Long opportunityId, Date startDate, Date endDate, Pageable pageable);
 
@@ -58,7 +57,6 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     Page<Task> findByOpportunityIdAndStatutTaskAndDeadlineBetween(
             Long opportunityId, StatutTask statutTask, Date startDate, Date endDate, Pageable pageable);
 
-    // New methods for filtering by priority
     Page<Task> findByPriorityAndAssignedUserIsNullAndDeadlineBetween(
             Priority priority, Date startDate, Date endDate, Pageable pageable);
 
@@ -77,7 +75,6 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     Page<Task> findByPriorityAndStatutTaskAndDeadlineBetween(
             Priority priority, StatutTask statutTask, Date startDate, Date endDate, Pageable pageable);
 
-    // New methods for filtering by priority and opportunityId
     Page<Task> findByPriorityAndOpportunityIdAndAssignedUserIsNullAndDeadlineBetween(
             Priority priority, Long opportunityId, Date startDate, Date endDate, Pageable pageable);
 
@@ -122,4 +119,16 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
     List<Task> findByStatutTaskAndDeadlineBefore(StatutTask statutTask, Date deadline);
     List<Task> findByStatutTaskNotInAndDeadlineBetween(List<StatutTask> statuses, Date start, Date end);
+
+    // Updated methods for archived tasks
+    Page<Task> findByArchivedTrue(Pageable pageable);
+
+    Page<Task> findByArchivedTrueAndOpportunityId(Long opportunityId, Pageable pageable);
+
+    Page<Task> findByArchivedTrueAndStatutTask(StatutTask statutTask, Pageable pageable);
+
+    Page<Task> findByArchivedTrueAndPriority(Priority priority, Pageable pageable);
+
+    @Query("SELECT t FROM Task t WHERE t.archived = true AND t.completedAt >= :startDate AND t.completedAt <= :endDate")
+    Page<Task> findByArchivedTrueAndCompletedAtBetween(@Param("startDate") Date startDate, @Param("endDate") Date endDate, Pageable pageable);
 }

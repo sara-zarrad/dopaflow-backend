@@ -16,7 +16,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.scheduling.annotation.Scheduled;
-import java.time.LocalDate;
+
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
@@ -94,6 +94,26 @@ public class TaskService {
             throw new SecurityException("You can only update the status of your own tasks");
         }
         task.setStatutTask(newStatus);
+        if (newStatus == StatutTask.Done || newStatus == StatutTask.Cancelled) {
+            task.setCompletedAt(new Date());
+        } else {
+            task.setCompletedAt(null);
+        }
+        return taskRepository.save(task);
+    }
+
+    @Transactional
+    public Task archiveTask(Long id) {
+        User currentUser = getCurrentUser();
+        Task task = taskRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Task not found with id: " + id));
+        if (!hasAdminPrivileges(currentUser) && !task.getAssignedUser().getId().equals(currentUser.getId())) {
+            throw new SecurityException("You can only archive your own tasks");
+        }
+        if (task.isArchived()) {
+            throw new RuntimeException("Task is already archived");
+        }
+        task.setArchived(true);
         return taskRepository.save(task);
     }
 
@@ -112,6 +132,7 @@ public class TaskService {
             boolean unassignedOnly,
             Long opportunityId,
             String priorityStr,
+            boolean archived,
             int page,
             int size,
             String sort) {
@@ -129,7 +150,19 @@ public class TaskService {
             throw new SecurityException("Regular users can only filter their own tasks");
         }
 
-        // Handle priority filtering first
+        if (archived) {
+            if (priority != null) {
+                return taskRepository.findByArchivedTrueAndPriority(priority, pageable);
+            } else if (opportunityId != null) {
+                return taskRepository.findByArchivedTrueAndOpportunityId(opportunityId, pageable);
+            } else if (!"ANY".equals(filteredStatus)) {
+                StatutTask statutTask = StatutTask.valueOf(filteredStatus);
+                return taskRepository.findByArchivedTrueAndStatutTask(statutTask, pageable);
+            } else {
+                return taskRepository.findByArchivedTrue(pageable);
+            }
+        }
+
         if (priority != null) {
             if (opportunityId != null) {
                 if ("ANY".equals(filteredStatus)) {
@@ -192,9 +225,7 @@ public class TaskService {
                     }
                 }
             }
-        }
-        // Fallback to status-only or opportunity-only filtering if no priority is specified
-        else if (opportunityId != null) {
+        } else if (opportunityId != null) {
             if ("ANY".equals(filteredStatus)) {
                 if (unassignedOnly) {
                     return taskRepository.findByOpportunityIdAndAssignedUserIsNullAndDeadlineBetween(
@@ -293,16 +324,14 @@ public class TaskService {
         Opportunity opportunity = opportunityRepository.findById(opportunityId)
                 .orElseThrow(() -> new RuntimeException("Opportunity not found with id: " + opportunityId));
 
-        // Validate deadline: must be at least tomorrow in local time
         ZoneId localZone = ZoneId.of(TIME_ZONE);
         LocalDateTime localDeadline = LocalDateTime.ofInstant(task.getDeadline().toInstant(), localZone);
-        LocalDate localDate = localDeadline.toLocalDate();
-        LocalDate today = LocalDate.now(localZone);
+        LocalDateTime localDate = localDeadline;
+        LocalDateTime today = LocalDateTime.now(localZone);
         if (localDate.isBefore(today.plusDays(1))) {
             throw new IllegalArgumentException("Deadline must be at least tomorrow");
         }
 
-        // Authorization: Admins can assign to anyone, regular users only to themselves
         User assignedUser = null;
         if (assignedUserId != null) {
             assignedUser = userRepository.findById(assignedUserId)
@@ -317,6 +346,7 @@ public class TaskService {
         if (task.getStatutTask() == null) {
             task.setStatutTask(StatutTask.ToDo);
         }
+        task.setArchived(false);
 
         Task savedTask = taskRepository.save(task);
         if (assignedUser != null) {
@@ -332,18 +362,30 @@ public class TaskService {
                 .orElseThrow(() -> new RuntimeException("Task not found with id: " + id));
         User previousAssignedUser = task.getAssignedUser();
 
-        // Validate deadline if provided: must be at least tomorrow in local time
+        if (task.isArchived()) {
+            throw new RuntimeException("Cannot update archived tasks");
+        }
+
+        // Apply restrictions for non-admin users when task is InProgress
+        if (task.getStatutTask() == StatutTask.InProgress && !hasAdminPrivileges(currentUser)) {
+            // Only allow updating priority and assigned user for regular users
+            if (taskDetails.getTitle() != null || taskDetails.getDeadline() != null ||
+                    taskDetails.getTypeTask() != null || taskDetails.getOpportunity() != null ||
+                    taskDetails.getDescription() != null) {
+                throw new IllegalArgumentException("In-progress tasks can only update priority and assigned user for regular users");
+            }
+        }
+
         if (taskDetails.getDeadline() != null) {
             ZoneId localZone = ZoneId.of(TIME_ZONE);
             LocalDateTime localDeadline = LocalDateTime.ofInstant(taskDetails.getDeadline().toInstant(), localZone);
-            LocalDate localDate = localDeadline.toLocalDate();
-            LocalDate today = LocalDate.now(localZone);
+            LocalDateTime localDate = localDeadline;
+            LocalDateTime today = LocalDateTime.now(localZone);
             if (localDate.isBefore(today.plusDays(1))) {
                 throw new IllegalArgumentException("Deadline must be at least tomorrow");
             }
         }
 
-        // Authorization for updating assigned user
         if (assignedUserId != null) {
             User assignedUser = userRepository.findById(assignedUserId)
                     .orElseThrow(() -> new RuntimeException("User not found with id: " + assignedUserId));
@@ -356,7 +398,6 @@ public class TaskService {
             }
         }
 
-        // Update fields only if provided in taskDetails
         if (taskDetails.getTitle() != null) task.setTitle(taskDetails.getTitle());
         if (taskDetails.getDescription() != null) task.setDescription(taskDetails.getDescription());
         if (taskDetails.getDeadline() != null) task.setDeadline(taskDetails.getDeadline());
@@ -415,7 +456,7 @@ public class TaskService {
     @Scheduled(fixedRate = 60000) // Runs every minute
     @Transactional
     public void checkUpcomingDeadlines() {
-        ZoneId localZone = ZoneId.of("Europe/London");
+        ZoneId localZone = ZoneId.of(TIME_ZONE);
         LocalDateTime nowLocal = LocalDateTime.now(localZone);
         LocalDateTime in24HoursLocal = nowLocal.plusHours(24);
         Date start = Date.from(nowLocal.atZone(localZone).toInstant());
@@ -437,6 +478,30 @@ public class TaskService {
                 );
                 if (!hasReminder) {
                     createNotification(assignedUser, task, Notification.NotificationType.TASK_UPCOMING);
+                }
+            }
+        }
+    }
+
+    @Scheduled(fixedRate = 60000) // Runs every minute
+    @Transactional
+    public void archiveCompletedTasks() {
+        ZoneId localZone = ZoneId.of(TIME_ZONE);
+        LocalDateTime nowLocal = LocalDateTime.now(localZone);
+        LocalDateTime twentyFourHoursAgo = nowLocal.minusHours(24);
+        Date cutoff = Date.from(twentyFourHoursAgo.atZone(localZone).toInstant());
+
+        List<Task> tasksToArchive = taskRepository.findByStatutTaskNotInAndDeadlineBetween(
+                List.of(StatutTask.ToDo, StatutTask.InProgress),
+                new Date(0), cutoff
+        );
+
+        for (Task task : tasksToArchive) {
+            if (task.getOpportunity() != null) {
+                String oppStatus = task.getOpportunity().getStatus().toString();
+                if (oppStatus != null && (oppStatus.equalsIgnoreCase("WON") || oppStatus.equalsIgnoreCase("LOST"))) {
+                    task.setArchived(true);
+                    taskRepository.save(task);
                 }
             }
         }
@@ -472,6 +537,7 @@ public class TaskService {
             for (Task task : tasks) {
                 task.setOpportunity(null);
                 task.setStatutTask(StatutTask.Cancelled);
+                task.setCompletedAt(new Date());
             }
             taskRepository.saveAll(tasks);
         }

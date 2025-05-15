@@ -135,11 +135,12 @@ public class TaskController {
             @RequestParam(defaultValue = "false") boolean unassignedOnly,
             @RequestParam(required = false) Long opportunityId,
             @RequestParam(required = false) String priority,
+            @RequestParam(defaultValue = "false") boolean archived,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size,
             @RequestParam(defaultValue = "deadline,desc") String sort) {
         try {
-            return ResponseEntity.ok(taskService.filterTasks(status, startDate, endDate, assignedUserId, unassignedOnly, opportunityId, priority, page, size, sort)
+            return ResponseEntity.ok(taskService.filterTasks(status, startDate, endDate, assignedUserId, unassignedOnly, opportunityId, priority, archived, page, size, sort)
                     .map(TaskDTO::new));
         } catch (IllegalArgumentException e) {
             System.out.println("Invalid parameter: " + e.getMessage());
